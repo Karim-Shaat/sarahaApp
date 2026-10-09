@@ -41,7 +41,10 @@ const bootstrap = async ()=>{
         })
     })
 
-    app.listen(3000,()=>{
+   
+    
+
+    app.listen(process.env.PORT,()=>{
         console.log(chalk.green("Server Is Running ...."));  
     })
     

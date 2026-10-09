@@ -1,4 +1,5 @@
 import userModel from "../../DB/models/user.model.js";
+import {decodeToken, tokenEnum} from "../../middlewares/auth.middleware.js";
 import { errRes } from "../../utils/error,handle.js";
 import jwt from "jsonwebtoken";
 
@@ -61,11 +62,37 @@ export const loginService = async ({identifier, password})=>{
     const accessToken = jwt.sign({
         _id: user._id,
         email: user.email
-    },"accesstoken_;jvleflbf")
+    },process.env.ACCESS_TOKEN_SECRET,{
+        expiresIn:"10S"
+    })
+    const refreshToken = jwt.sign({
+        _id: user._id,
+        email: user.email
+    },process.env.REFRESH_TOKEN_SECRET,{
+        expiresIn: "7d"
+    })
 
     return{
         data:{
-            accessToken
+            accessToken,
+            refreshToken
         }
     }
+}
+
+
+export const refreshToken = async (authorization)=>{
+  const { user } = await decodeToken({authorization , tokenType : tokenEnum.refresh})
+  const accessToken = jwt.sign({
+    _id: user._id,
+    email : user.email
+  },process.env.ACCESS_TOKEN_SECRET,{
+    expiresIn:"10S"
+  })
+
+  return {
+    data:{
+        accessToken
+    }
+  }
 }

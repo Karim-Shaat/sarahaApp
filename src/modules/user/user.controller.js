@@ -1,13 +1,17 @@
 import { Router } from "express";
 import { successRes } from "../../utils/success.res.js";
 import { StatusCodes } from "http-status-codes";
-import { loginService, signupService } from "./user.services.js";
+import { loginService, refreshToken, signupService } from "./user.services.js";
+import { auth, authorization } from "../../middlewares/auth.middleware.js";
+import { RoleEnum } from "../../DB/models/user.types.js";
 const router = Router()
 
 export const routes ={
     base: "/users",
-    signup: "/signup", //post
-    login: "/login" //post
+    signup: "/signup",             //post
+    login: "/login",               //post
+    me: "/me" ,                    //get
+    refreshToken: "/refresh-token" //post
 }
 
 
@@ -27,6 +31,18 @@ router.post(routes.login, async (req, res)=>{
     return successRes({res,data})
 })
 
+router.get(routes.me, auth, authorization(RoleEnum.user) ,async (req, res)=>{
+    
+    const user = req.user
+    successRes({res,data: {user}})    
+})
+
+router.post(routes.refreshToken, async (req, res)=>{
+    const authorization = req.headers.authorization
+    const {data} = await refreshToken(authorization)
+
+    successRes({res,data})
+})
 
 
 
