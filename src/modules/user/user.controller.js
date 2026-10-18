@@ -4,6 +4,9 @@ import { StatusCodes } from "http-status-codes";
 import { loginService, refreshToken, signupService } from "./user.services.js";
 import { auth, authorization } from "../../middlewares/auth.middleware.js";
 import { RoleEnum } from "../../DB/models/user.types.js";
+import { signUpSchema } from "./user.validation.js";
+import { errRes } from "../../utils/error,handle.js";
+import { validation } from "../../middlewares/validation.middleware.js";
 const router = Router()
 
 export const routes ={
@@ -15,7 +18,7 @@ export const routes ={
 }
 
 
-router.post(routes.signup, async (req, res) => {
+router.post(routes.signup, validation(signUpSchema), async (req, res) => {
    const {data} = await signupService(req.body)
    return successRes({
     res,

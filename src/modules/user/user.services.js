@@ -2,6 +2,8 @@ import userModel from "../../DB/models/user.model.js";
 import {decodeToken, tokenEnum} from "../../middlewares/auth.middleware.js";
 import { errRes } from "../../utils/error,handle.js";
 import jwt from "jsonwebtoken";
+import { compareHash, createHash } from "../../utils/security/hash.js";
+import { encryption } from "../../utils/security/encryption.js";
 
 export const signupService = async ({fullName, email, password, gender, phone, bio, age, userName})=>{
    const isExist = await userModel.findOne({
@@ -18,7 +20,7 @@ export const signupService = async ({fullName, email, password, gender, phone, b
    }
    
    const user = await userModel.create({
-         fullName, email, password, gender, phone, bio, age, userName
+         fullName, email, password: await createHash(password), gender, phone : encryption(phone), bio, age, userName
    })
    return {
         data : {
@@ -53,7 +55,8 @@ export const loginService = async ({identifier, password})=>{
             statusCode:400
         })
     }
-    if (user.password != password) {
+    const isPasswordMatch = await compareHash(password, user.password) 
+    if (!isPasswordMatch) {
         errRes({
             msg:"invalid credentials",
             statusCode:400
