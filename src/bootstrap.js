@@ -3,13 +3,17 @@ import chalk from "chalk";
 import userRouter, { routes as userRoutes } from "./modules/user/user.controller.js";
 import { DBconnection } from "./DB/DB.connection.js";
 import userModel from "./DB/models/user.model.js";
-
+import cors from "cors";
+import { sendEmail } from "./utils/email/sendEmail.js";
+import { emailTemplate } from "./utils/email/emailTemplate.js";
 
 const bootstrap = async ()=>{
     const app = express()
+    app.use(cors({
+        origin: "*",
+    }))
     app.use(express.json());
     await DBconnection()
-
 
     //app.use(userRoutes.base, userRouter)
     // await userModel.create({

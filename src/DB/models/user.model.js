@@ -1,5 +1,7 @@
-import { model, Schema } from "mongoose";
+import { get, model, Schema } from "mongoose";
 import { GenderEnum, ProviderEnum, RoleEnum } from "./user.types.js";
+import { decryption, encryption } from "../../utils/security/encryption.js";
+import { date, maxLength } from "zod";
 
 
 
@@ -19,11 +21,18 @@ const userSchema = new Schema({
     },
     password: {
         type: String,
-        required: true
+        required: function () {
+            this.provider == ProviderEnum.system ? true : false
+        }
     },
     phone: {
         type: String,
-        required: true
+        set(value){
+            return encryption(value)
+        },
+        get(value){
+            return decryption(value)
+        }
     },
     age: Number,
     profileImage: {
@@ -46,11 +55,24 @@ const userSchema = new Schema({
     bio: String,
     userName: {
         type: String,
-        required: true,
+        required: function () {
+            this.provider == ProviderEnum.system ? true : false
+        },
         unique : true
     },
     confirmedAt: Date,
     blockedAt :Date,
+    otp:{
+        otp:{
+            type: String,
+            require: true,
+            maxLength: 6,
+            minLength: 6
+        },expireIn: {
+            type: Date,
+            default: Date.now() + 5 * 60 * 1000
+        }
+    }
 },
 {
     timestamps: true,

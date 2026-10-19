@@ -35,9 +35,9 @@ export const decodeToken = async ({authorization, tokenType = tokenEnum.access})
     if(!user){
         errRes({msg:"user mot found", statusCode: 404})
     }
-    // if(!user.confirmedAt){
-    //     errRes({msg: "confirm first",statusCode: 401})
-    // }
+    if(!user.confirmedAt){
+        errRes({msg: "confirm first",statusCode: 401})
+    }
     console.log({user});
 
     return {

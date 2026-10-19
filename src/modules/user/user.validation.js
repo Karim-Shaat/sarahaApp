@@ -15,9 +15,9 @@ export const signUpSchema ={
         userName: z.string(),
         bio: z.string().optional()
     }),
-    query: z.strictObject({
-        id: z.string()
-    })
+//     query: z.strictObject({
+//        id: z.string()
+//     })
 }
 
 
