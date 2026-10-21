@@ -1,8 +1,16 @@
 import { get, model, Schema } from "mongoose";
 import { GenderEnum, ProviderEnum, RoleEnum } from "./user.types.js";
 import { decryption, encryption } from "../../utils/security/encryption.js";
-import { date, maxLength } from "zod";
 
+const otpSchema = new Schema({
+    otp:{
+        type: String,
+        require: true
+    },expireIn: {
+        type: Date,
+        default: Date.now() + 2*60*1000
+    }, _id: false
+})
 
 
 const userSchema = new Schema({
@@ -62,17 +70,7 @@ const userSchema = new Schema({
     },
     confirmedAt: Date,
     blockedAt :Date,
-    otp:{
-        otp:{
-            type: String,
-            require: true,
-            maxLength: 6,
-            minLength: 6
-        },expireIn: {
-            type: Date,
-            default: Date.now() + 5 * 60 * 1000
-        }
-    }
+    otp: otpSchema
 },
 {
     timestamps: true,

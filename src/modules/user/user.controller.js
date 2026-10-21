@@ -1,11 +1,10 @@
 import { Router } from "express";
 import { successRes } from "../../utils/success.res.js";
 import { StatusCodes } from "http-status-codes";
-import { confirmEmail, googleLogin, loginService, refreshToken, signupService } from "./user.services.js";
+import { confirmEmail, forgetPassSendOtp, googleLogin, loginService, refreshToken, resetPassword, signupService } from "./user.services.js";
 import { auth, authorization } from "../../middlewares/auth.middleware.js";
 import { RoleEnum } from "../../DB/models/user.types.js";
 import { signUpSchema } from "./user.validation.js";
-import { errRes } from "../../utils/error,handle.js";
 import { validation } from "../../middlewares/validation.middleware.js";
 const router = Router()
 
@@ -16,7 +15,9 @@ export const routes ={
     me: "/me" ,                     //get
     refreshToken: "/refresh-token", //post
     googleSignUp: "/signup/gmail",  //post
-    confirmEmail: "/confirm-email"  //patch
+    confirmEmail: "/confirm-email", //patch
+    forgetPassword:"/forget-password",//patch
+    resetPassword:"/reset-password",//patch
 }
 
 
@@ -62,6 +63,25 @@ router.patch(routes.confirmEmail, async (req, res)=>{
         res,
         data
     })
+})
+
+router.patch(routes.forgetPassword , async ( req , res ) => {
+    const {email} = req.body
+
+    await forgetPassSendOtp(email)
+
+    successRes({
+        res,
+        msg:"otp sent to email if exist"
+    })
+})
+
+router.patch(routes.resetPassword, async (req, res) => {
+    const {email, otp, password} = req.body
+
+    await resetPassword(email, otp, password)
+
+    successRes({res})
 })
 
 

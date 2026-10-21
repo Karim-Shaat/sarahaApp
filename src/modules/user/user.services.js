@@ -8,6 +8,7 @@ import { ProviderEnum } from "../../DB/models/user.types.js";
 import { random } from "../../utils/email/createOTP.js";
 import { sendEmail } from "../../utils/email/sendEmail.js";
 import { emailTemplate } from "../../utils/email/emailTemplate.js";
+import { email } from "zod";
 const googleClient = new OAuth2Client()
 
 
@@ -145,7 +146,8 @@ export const googleLogin = async ( token ) => {
             email,
             fullName: name,
             profileImage: picture,
-            provider: ProviderEnum.google
+            provider: ProviderEnum.google,
+            confirmedAt: Date.now()
         })
     }
 
@@ -179,16 +181,67 @@ export const confirmEmail = async(email ,otp )=>{
     if (!user) {
         errRes({msg:"user not found",statusCode:404})
     }
-    if (!user.otp || user.otp.expireIn < Date.now()) {
-        errRes({msg:"otp expired",statusCode:404})
-    }
-    if (user.otp.otp != otp) {
-         errRes({msg:"in-valid otp",statusCode:400})
-    }
+
+    await checkOtp(user, otp)
+
     user.confirmedAt = Date.now()
     await user.save()
 
     return{
         data:{}
+    }
+}
+
+export const forgetPassSendOtp = async (email) => {
+    const user = await userModel.findOne({email})
+    if (!user) {
+        
+        errRes({msg:"user not found",statusCode:404})
+    }
+    if (user.otp.expireIn > Date.now()) {
+        errRes({msg:"wait 2 min to resend code"})
+        
+    }
+    const otp = random(6)
+    user.otp.otp = await createHash(otp)
+    user.otp.expireIn = Date.now() + 2*60*1000
+    await user.save()
+    sendEmail({
+        to : email,
+        subject:"forget password",
+        html: emailTemplate({
+            otp,
+            subject:"forget password"
+        })
+    })
+
+    return {
+        data:{}
+    }
+
+}
+
+export const resetPassword = async (email, otp, password) =>{
+    const user = await userModel.findOne({ email })
+        if (!user) {
+            errRes({msg:"user not found",statusCode:404})
+        }
+        
+        await checkOtp(user, otp)
+
+        user.password = await createHash(password)
+        await user.save()
+        return {
+            data:{}
+        }
+
+}
+
+export const checkOtp = async (user, otp) =>{
+    if (!user.otp || user.otp.expireIn < Date.now()) {
+        errRes({msg:"otp expired",statusCode:404})
+    }
+    if (!await compareHash(otp, user.otp.otp)) {
+         errRes({msg:"in-valid otp",statusCode:400})
     }
 }
