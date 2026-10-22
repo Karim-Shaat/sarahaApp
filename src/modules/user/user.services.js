@@ -46,7 +46,7 @@ export const signupService = async ({fullName, email, password, gender, phone, b
          age, 
          userName,
          otp :{
-            otp
+            code : await createHash(otp)
          }
    })
    return {
@@ -203,7 +203,7 @@ export const forgetPassSendOtp = async (email) => {
         
     }
     const otp = random(6)
-    user.otp.otp = await createHash(otp)
+    user.otp.code = await createHash(otp)
     user.otp.expireIn = Date.now() + 2*60*1000
     await user.save()
     sendEmail({
@@ -241,7 +241,7 @@ export const checkOtp = async (user, otp) =>{
     if (!user.otp || user.otp.expireIn < Date.now()) {
         errRes({msg:"otp expired",statusCode:404})
     }
-    if (!await compareHash(otp, user.otp.otp)) {
+    if (!await compareHash(otp, user.otp.code)) {
          errRes({msg:"in-valid otp",statusCode:400})
     }
 }

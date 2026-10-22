@@ -4,8 +4,10 @@ import { StatusCodes } from "http-status-codes";
 import { confirmEmail, forgetPassSendOtp, googleLogin, loginService, refreshToken, resetPassword, signupService } from "./user.services.js";
 import { auth, authorization } from "../../middlewares/auth.middleware.js";
 import { RoleEnum } from "../../DB/models/user.types.js";
-import { signUpSchema } from "./user.validation.js";
+import { resetPasswordSchema, signUpSchema } from "./user.validation.js";
 import { validation } from "../../middlewares/validation.middleware.js";
+import multer from "multer";
+import { uploadFile } from "../../utils/multer.js";
 const router = Router()
 
 export const routes ={
@@ -18,6 +20,7 @@ export const routes ={
     confirmEmail: "/confirm-email", //patch
     forgetPassword:"/forget-password",//patch
     resetPassword:"/reset-password",//patch
+    uploadFile: "/upload-file",     //get
 }
 
 
@@ -70,19 +73,37 @@ router.patch(routes.forgetPassword , async ( req , res ) => {
 
     await forgetPassSendOtp(email)
 
-    successRes({
+    return successRes({
         res,
         msg:"otp sent to email if exist"
     })
 })
 
-router.patch(routes.resetPassword, async (req, res) => {
+router.patch(routes.resetPassword,validation(resetPasswordSchema), async (req, res) => {
     const {email, otp, password} = req.body
 
     await resetPassword(email, otp, password)
 
     successRes({res})
 })
+
+
+router.get(routes.uploadFile, auth, uploadFile("users").single("image"), async (req, res) => {
+    console.log({
+        body: req.body,
+        files: req.file
+    });
+    req.user.profileImage = req.file.path
+    await req.user.save()
+    
+
+    successRes({res})
+})
+
+
+
+
+
 
 
 

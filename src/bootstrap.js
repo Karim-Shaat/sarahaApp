@@ -2,10 +2,7 @@ import express from "express";
 import chalk from "chalk";
 import userRouter, { routes as userRoutes } from "./modules/user/user.controller.js";
 import { DBconnection } from "./DB/DB.connection.js";
-import userModel from "./DB/models/user.model.js";
 import cors from "cors";
-import { sendEmail } from "./utils/email/sendEmail.js";
-import { emailTemplate } from "./utils/email/emailTemplate.js";
 
 const bootstrap = async ()=>{
     const app = express()
@@ -15,24 +12,7 @@ const bootstrap = async ()=>{
     app.use(express.json());
     await DBconnection()
 
-    //app.use(userRoutes.base, userRouter)
-    // await userModel.create({
-    //     fullName: "karim2shaat",
-    //     email:"karim2@gmail.com",
-    //     password:"123",
-    //     userName:"karim2_shaat",
-    //     phone:"01020962371",
-    //     // firstName:"karim",
-    //     // lastName:"shaat",
-
-    // }) 
-
-    // app.get("/", async (req,res)=>{
-    //     const user = await userModel.find()
-    //     res.json(user)
-    // })
-    // const user = await userModel.find()
-    // console.log(user);
+    app.use("/uploads",express.static("./uploads"))
     app.use(userRoutes.base, userRouter)
     
 
@@ -45,9 +25,6 @@ const bootstrap = async ()=>{
             errOptions: err.cause?.options
         })
     })
-
-   
-    
 
     app.listen(process.env.PORT,()=>{
         console.log(chalk.green("Server Is Running ...."));  

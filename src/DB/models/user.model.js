@@ -3,7 +3,7 @@ import { GenderEnum, ProviderEnum, RoleEnum } from "./user.types.js";
 import { decryption, encryption } from "../../utils/security/encryption.js";
 
 const otpSchema = new Schema({
-    otp:{
+    code:{
         type: String,
         require: true
     },expireIn: {
