@@ -8,8 +8,23 @@ import { ProviderEnum } from "../../DB/models/user.types.js";
 import { random } from "../../utils/email/createOTP.js";
 import { sendEmail } from "../../utils/email/sendEmail.js";
 import { emailTemplate } from "../../utils/email/emailTemplate.js";
-import { email } from "zod";
+import { 
+    attemptBlockCountKay, 
+    attemptBlockKay, 
+    attemptsKay, 
+    confirmEmailKay, 
+    resendOtpKay, 
+    userPrefixKay
+} from "../../utils/redis.servieces.js";
+import { redisClient } from "../../DB/redis.connect.js";
+
 const googleClient = new OAuth2Client()
+
+const calcBlockSecs = (count)=>{
+    const BlockMinArr = [5, 15, 60, 300, 1440]
+    const index = Math.min(count, BlockMinArr.length) 
+    return BlockMinArr[index - 1] * 60
+}
 
 
 export const signupService = async ({fullName, email, password, gender, phone, bio, age, userName})=>{
@@ -44,11 +59,24 @@ export const signupService = async ({fullName, email, password, gender, phone, b
          phone, 
          bio, 
          age, 
-         userName,
-         otp :{
-            code : await createHash(otp)
-         }
+         userName    
    })
+
+   const redisKay = confirmEmailKay(user._id)
+   await redisClient.set(redisKay, await createHash(otp), {
+    expiration:{
+        type:"EX",
+        value: 5 * 60
+    }
+   })
+   await redisClient.set(resendOtpKay(user._id), 0, {
+    expiration:{
+        type:"EX",
+        value: 1 * 60
+    }
+   })
+   await redisClient.incr(attemptsKay(user._id))
+
    return {
         data : {
             user
@@ -182,10 +210,44 @@ export const confirmEmail = async(email ,otp )=>{
         errRes({msg:"user not found",statusCode:404})
     }
 
-    await checkOtp(user, otp)
+    // await checkOtp(user, otp)
 
-    user.confirmedAt = Date.now()
-    await user.save()
+    const hashedOtp = await redisClient.get(confirmEmailKay(user._id))
+    if (!hashedOtp) {
+        errRes({msg: "invalid or expire otp"})
+    }
+    const isBlocked = await redisClient.get(attemptBlockKay(user._id))
+    if (isBlocked) {
+        const blockedTtl = await redisClient.ttl(attemptBlockKay(user._id))
+        errRes({msg:`try again after ${Math.round(blockedTtl / 60)}min` , statusCode:400})
+    }
+    const isOtoCorrect = await compareHash(otp, hashedOtp)
+    if (!isOtoCorrect) {
+        const attempts = await redisClient.incr(attemptsKay(user._id))
+        if (attempts >= 5) {
+            const blockCount = await redisClient.incr(attemptBlockCountKay(user._id))
+            await redisClient.set(attemptBlockKay(user._id),0,{
+                expiration:{
+                    type:"EX",
+                    value: calcBlockSecs(blockCount)
+                }
+            })
+            errRes({
+                msg:`try again after ${Math.round(calcBlockSecs(blockCount) / 60)}min`, 
+                statusCode:400
+            })
+        }
+    }else{
+        user.confirmedAt = Date.now()
+        await user.save()
+        const userKeys = await redisClient.keys(`${userPrefixKay(user._id)}*`)
+        await redisClient.del(userKeys)
+    }
+
+
+
+
+
 
     return{
         data:{}
@@ -227,7 +289,11 @@ export const resetPassword = async (email, otp, password) =>{
             errRes({msg:"user not found",statusCode:404})
         }
         
-        await checkOtp(user, otp)
+        // await checkOtp(user, otp)
+
+
+
+
 
         user.password = await createHash(password)
         await user.save()
@@ -237,11 +303,11 @@ export const resetPassword = async (email, otp, password) =>{
 
 }
 
-export const checkOtp = async (user, otp) =>{
-    if (!user.otp || user.otp.expireIn < Date.now()) {
-        errRes({msg:"otp expired",statusCode:404})
-    }
-    if (!await compareHash(otp, user.otp.code)) {
-         errRes({msg:"in-valid otp",statusCode:400})
-    }
-}
+// export const checkOtp = async (user, otp) =>{
+//     if (!user.otp || user.otp.expireIn < Date.now()) {
+//         errRes({msg:"otp expired",statusCode:404})
+//     }
+//     if (!await compareHash(otp, user.otp.code)) {
+//          errRes({msg:"in-valid otp",statusCode:400})
+//     }
+// }
