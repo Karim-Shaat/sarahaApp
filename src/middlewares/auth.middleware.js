@@ -1,6 +1,8 @@
 import jwb from "jsonwebtoken";
 import { errRes } from "../utils/error,handle.js";
 import userModel from "../DB/models/user.model.js";
+import { redisClient } from "../DB/redis.connect.js";
+import { userSessionJwtIdKay } from "../utils/redis.servieces.js";
 
 export const tokenEnum = {
     access: "access",
@@ -11,15 +13,15 @@ export const tokenEnum = {
 
 export const auth = async(req, res, next)=>{
 
-    const {user} = await decodeToken({authorization : req.headers.authorization})
+    const {user, jti} = await decodeToken({authorization : req.headers.authorization})
     req.user = user
+    req.jti = jti
     next()
 }
 
 
 export const decodeToken = async ({authorization, tokenType = tokenEnum.access})=>{
      
-    console.log({authorization});
 
     if (!authorization || !authorization.startsWith("Bearer")) {
         errRes({msg : "in-valid----token",statusCode:401})
@@ -38,10 +40,21 @@ export const decodeToken = async ({authorization, tokenType = tokenEnum.access})
     if(!user.confirmedAt){
         errRes({msg: "confirm first",statusCode: 401})
     }
-    console.log({user});
+    const { jti } = payload
+    if(!jti){
+        errRes({
+            msg:"in-valid token",
+            statusCode:400
+        })
+    }
+    const redisJti = await redisClient.get(userSessionJwtIdKay(user._id, jti))
+    if(!redisJti){
+        errRes({msg:"logged out login again", statusCode: 400})
+    }
 
     return {
-        user
+        user,
+        jti
     }
 }
 

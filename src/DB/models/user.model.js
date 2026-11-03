@@ -1,4 +1,4 @@
-import { get, model, Schema } from "mongoose";
+import { model, Schema } from "mongoose";
 import { GenderEnum, ProviderEnum, RoleEnum } from "./user.types.js";
 import { decryption, encryption } from "../../utils/security/encryption.js";
 

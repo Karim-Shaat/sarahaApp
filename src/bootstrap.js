@@ -4,6 +4,7 @@ import userRouter, { routes as userRoutes } from "./modules/user/user.controller
 import { DBconnection } from "./DB/DB.connection.js";
 import cors from "cors";
 import { redisClient } from "./DB/redis.connect.js";
+import messageRouter,{ routes as messageRoutes } from "./modules/message/message.controller.js";
 
 const bootstrap = async ()=>{
     const app = express()
@@ -15,7 +16,8 @@ const bootstrap = async ()=>{
 
     app.use("/uploads",express.static("./uploads"))
     app.use(userRoutes.base, userRouter)
-
+    app.use(messageRoutes.base, messageRouter)
+    
 
     app.use((err, req, res, next)=>{
         const statusCode = err.cause?.statusCode || 500

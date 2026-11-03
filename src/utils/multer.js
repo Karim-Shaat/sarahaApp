@@ -6,7 +6,7 @@ import fs from "fs/promises";
 export const uploadFile = (dest = "/general") => {
     const storage = diskStorage({
         destination: async (req, file, cp)=>{
-            const userId = req.user._id
+            const userId = req.user?._id || ""
             const folderName = `./uploads/${dest}/${userId}`
             try {
                 await fs.access(folderName)
@@ -18,7 +18,7 @@ export const uploadFile = (dest = "/general") => {
             cp(null,folderName)
         },
         filename: (req, file, cp) =>{
-            const userName = req.user.userName
+            const userName = req.user?.userName || ""
             const fileName = userName + "_"+Date.now() + "_"+ file.originalname
             cp(null, fileName)
         }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { successRes } from "../../utils/success.res.js";
 import { StatusCodes } from "http-status-codes";
-import { confirmEmail, forgetPassSendOtp, googleLogin, loginService, refreshToken, resetPassword, signupService } from "./user.services.js";
+import { confirmEmail, forgetPassSendOtp, googleLogin, loginService, logOut, logOutFromAllDevices, refreshToken, resendConfirmEmailOtp, resetPassword, signupService } from "./user.services.js";
 import { auth, authorization } from "../../middlewares/auth.middleware.js";
 import { RoleEnum } from "../../DB/models/user.types.js";
 import { resetPasswordSchema, signUpSchema } from "./user.validation.js";
@@ -21,6 +21,10 @@ export const routes ={
     forgetPassword:"/forget-password",//patch
     resetPassword:"/reset-password",//patch
     uploadFile: "/upload-file",     //get
+    resendConfirmEmailOtp : "/resend-confirm-otp", //post
+    logOutFromAllDevices:"/logout-from-all-devices",//post
+    logOutFromOneDevice:"/logout-from-one-device",//post
+
 }
 
 
@@ -100,10 +104,27 @@ router.get(routes.uploadFile, auth, uploadFile("users").single("image"), async (
     successRes({res})
 })
 
+router.post(routes.resendConfirmEmailOtp, async (req, res) => {
+    const {email} = req.body
+    const {data} = await resendConfirmEmailOtp(email)
 
+    successRes({res, data})
+})
 
+router.post(routes.logOutFromAllDevices, auth, async(req, res) => {
+    const userId = req.user._id
+    await logOutFromAllDevices(userId)
 
+    return successRes({res})
+})
 
+router.post(routes.logOutFromOneDevice, auth, async(req, res) => {
+    const userId = req.user._id
+    const jti = req.jti 
+    await logOut(userId,jti)
+
+    return successRes({res})
+})
 
 
 

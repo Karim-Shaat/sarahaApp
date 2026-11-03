@@ -14,9 +14,12 @@ import {
     attemptsKay, 
     confirmEmailKay, 
     resendOtpKay, 
-    userPrefixKay
+    userPrefixKay,
+    userSessionJwtIdKay,
+    userSessionJwtIdPrefixKay
 } from "../../utils/redis.servieces.js";
 import { redisClient } from "../../DB/redis.connect.js";
+import { nanoid } from "nanoid";
 
 const googleClient = new OAuth2Client()
 
@@ -117,18 +120,27 @@ export const loginService = async ({identifier, password})=>{
             statusCode:400
         })
     }
+    const jwtid = nanoid()
     const accessToken = jwt.sign({
         _id: user._id,
-        email: user.email
+        email: user.email,
     },process.env.ACCESS_TOKEN_SECRET,{
-        expiresIn:"10S"
+        expiresIn:"60S",
+        jwtid
     })
     const refreshToken = jwt.sign({
         _id: user._id,
-        email: user.email
+        email: user.email,
     },process.env.REFRESH_TOKEN_SECRET,{
-        expiresIn: "7d"
+        expiresIn: "7d",
+        jwtid
     })
+    await redisClient.set(userSessionJwtIdKay(user._id,jwtid), jwtid,{
+        expiration:{
+            type:"EX",
+            value: 7 * 24 * 60 * 60
+        }
+    } )
 
     return{
         data:{
@@ -140,12 +152,13 @@ export const loginService = async ({identifier, password})=>{
 
 
 export const refreshToken = async (authorization)=>{
-  const { user } = await decodeToken({authorization , tokenType : tokenEnum.refresh})
+  const { user, jti } = await decodeToken({authorization , tokenType : tokenEnum.refresh})
   const accessToken = jwt.sign({
     _id: user._id,
     email : user.email
   },process.env.ACCESS_TOKEN_SECRET,{
-    expiresIn:"10S"
+    expiresIn:"60S",
+    jwtid: jti
   })
 
   return {
@@ -200,6 +213,65 @@ export const googleLogin = async ( token ) => {
     }
 }
 
+export const resendConfirmEmailOtp = async (email) =>{
+    const user = await userModel.findOne({
+        email, confirmedAt:{
+            $exists: false
+        }
+    })
+    if (!user) {
+        errRes({
+            msg:"user not found",
+            statusCode: 404
+        })
+    }
+    const userId = user._id
+    const cannotResend = (await redisClient.get(resendOtpKay(userId)) 
+    || await redisClient.get(attemptBlockKay(userId)))
+    if (cannotResend) {
+        errRes({msg:"wait",statusCode:400})
+    }
+    const attempts = await redisClient.incr(attemptsKay(userId))
+    if (attempts >= 5) {
+        const blockCount = await redisClient.incr(attemptBlockCountKay(user._id))
+        await redisClient.set(attemptBlockKay(user._id),0,{
+            expiration:{
+                type:"EX",
+                value: calcBlockSecs(blockCount)
+            }
+        })
+        await redisClient.set(attemptsKay(user._id), 0)
+    }else{
+        await redisClient.set(resendOtpKay(user._id), 0, {
+        expiration:{
+            type:"EX",
+            value: 1 * 60
+        }
+       })
+    }
+    const otp = random(6)
+    await sendEmail({
+        to: email,
+        subject: "confirm email",
+        html: emailTemplate({otp, subject:"confirm email"})
+    })
+   const redisKay = confirmEmailKay(user._id)
+   await redisClient.set(redisKay, await createHash(otp), {
+    expiration:{
+        type:"EX",
+        value: 5 * 60
+    }
+   })
+
+   return {
+    data:{
+
+    }
+   }
+
+
+}
+
 export const confirmEmail = async(email ,otp )=>{
     const user = await userModel.findOne({
         email,confirmedAt:{
@@ -232,6 +304,8 @@ export const confirmEmail = async(email ,otp )=>{
                     value: calcBlockSecs(blockCount)
                 }
             })
+            await redisClient.set(attemptsKay(user._id), 0)
+
             errRes({
                 msg:`try again after ${Math.round(calcBlockSecs(blockCount) / 60)}min`, 
                 statusCode:400
@@ -303,11 +377,45 @@ export const resetPassword = async (email, otp, password) =>{
 
 }
 
-// export const checkOtp = async (user, otp) =>{
-//     if (!user.otp || user.otp.expireIn < Date.now()) {
-//         errRes({msg:"otp expired",statusCode:404})
-//     }
-//     if (!await compareHash(otp, user.otp.code)) {
-//          errRes({msg:"in-valid otp",statusCode:400})
-//     }
-// }
+export const logOut = async (userId, jti) => {
+    const user = await userModel.findById(userId)
+    if(!user){
+        errRes({msg:"user not found",statusCode:404})
+    }
+    const deleteCount = await redisClient.del(userSessionJwtIdKay(userId, jti))
+    if (deleteCount < 1) {
+        errRes({
+            msg:"logged out already",
+
+        })
+    }
+
+    return {
+        data:{
+
+        }
+    }
+}
+
+export const logOutFromAllDevices = async (userId) => {
+    const user = await userModel.findById(userId)
+    if(!user){
+        errRes({msg:"user not found",statusCode:404})
+    }
+    const kays = await redisClient.keys(`${userSessionJwtIdPrefixKay(userId)}:*`) 
+    console.log(kays);
+    
+    const deleteCount = await redisClient.del(kays)
+    if (deleteCount < 1) {
+        errRes({
+            msg:"logged out already",
+
+        })
+    }
+
+    return {
+        data:{
+            
+        }
+    }
+}
